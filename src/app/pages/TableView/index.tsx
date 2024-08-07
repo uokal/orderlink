@@ -2,10 +2,10 @@ import React, { useState, useEffect, ChangeEvent } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TableSortLabel, Paper, TextField, Checkbox, Button, IconButton, Select,
-  MenuItem, FormControl
+  MenuItem, FormControl, InputLabel
 } from '@material-ui/core';
-import { Grid, Box, InputLabel, Card } from '@mui/material';
-import { Edit, Save, Cancel } from '@material-ui/icons';
+import { Grid, Box, Card } from '@mui/material';
+import { Edit, Save, Cancel, Clear } from '@material-ui/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { fetchRetreats, updateRetreat } from '../../api';
 
@@ -42,20 +42,61 @@ const RetreatTable: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
   const [editedRow, setEditedRow] = useState<Retreat | null>(null);
   const [visibleColumns, setVisibleColumns] = useState(columns);
+  const [views, setViews] = useState<{ [key: string]: any }>({});
+  const [currentView, setCurrentView] = useState<string>('');
 
   useEffect(() => {
-    fetchRetreats().then(setData);
+    fetchRetreats().then(setData).catch(error => console.error('Failed to fetch retreats:', error));
   }, []);
+
+  const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
+  const filterValue = (value: string | number, query: string) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (typeof value === 'string') {
+      const normalizedValue = value.trim().toLowerCase();
+      return normalizedValue.includes(normalizedQuery);
+    }
+    if (!isNaN(Number(query)) && !isNaN(Number(value))) {
+      return Number(value) === Number(query);
+    }
+    return false;
+  };
+
+  const filteredData = searchQuery.trim() === ''
+    ? data
+    : data.filter(row => {
+        return visibleColumns.some(col => {
+          if (col.visible) {
+            const value = row[col.id as keyof Retreat];
+            return filterValue(value, searchQuery);
+          }
+          return false;
+        });
+      });
+
+  const sortedData = filteredData.sort((a, b) => {
+    if (sortConfig.order === '') return 0;
+    const multiplier = sortConfig.order === 'asc' ? 1 : -1;
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
+    if (aValue === undefined || bValue === undefined) return 0;
+    return aValue.toString().localeCompare(bValue.toString()) * multiplier;
+  });
+
+  const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleSort = (columnId: keyof Retreat) => {
     let order: SortOrder = 'asc';
     if (sortConfig.key === columnId && sortConfig.order === 'asc') order = 'desc';
     if (sortConfig.key === columnId && sortConfig.order === 'desc') order = '';
     setSortConfig({ key: columnId, order });
-  };
-
-  const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
   };
 
   const handlePageChange = (direction: 'next' | 'prev') => {
@@ -77,7 +118,8 @@ const RetreatTable: React.FC = () => {
         .then(() => {
           setData(prev => prev.map(row => (row.id === editedRow.id ? editedRow : row)));
           setEditedRow(null);
-        });
+        })
+        .catch(error => console.error('Failed to update retreat:', error));
     }
   };
 
@@ -103,31 +145,34 @@ const RetreatTable: React.FC = () => {
     setData(reorderedData);
   };
 
-  const filteredData = data.filter(row => {
-    return visibleColumns.some(col => {
-      if (col.visible) {
-        const value = row[col.id as keyof Retreat];
-        return value && value.toString().toLowerCase().includes(searchQuery.toLowerCase());
-      }
-      return false;
+  const handleSaveView = (viewName: string) => {
+    setViews(prev => ({ ...prev, [viewName]: { columns: visibleColumns, sortConfig, searchQuery, rowsPerPage, currentPage } }));
+  };
+
+  const handleLoadView = (viewName: string) => {
+    const view = views[viewName];
+    if (view) {
+      setVisibleColumns(view.columns);
+      setSortConfig(view.sortConfig);
+      setSearchQuery(view.searchQuery);
+      setRowsPerPage(view.rowsPerPage);
+      setCurrentPage(view.currentPage);
+      setCurrentView(viewName);
+    }
+  };
+
+  const handleDeleteView = (viewName: string) => {
+    setViews(prev => {
+      const newViews = { ...prev };
+      delete newViews[viewName];
+      return newViews;
     });
-  });
-
-  const sortedData = filteredData.sort((a, b) => {
-    if (sortConfig.order === '') return 0;
-    const multiplier = sortConfig.order === 'asc' ? 1 : -1;
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
-    if (aValue === undefined || bValue === undefined) return 0;
-    return aValue.toString().localeCompare(bValue.toString()) * multiplier;
-  });
-
-  const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  };
 
   return (
     <Card sx={{ p: 5 }} variant="outlined">
-      <Grid container spacing={2} columns={16}>
-        <Grid item xs={8}>
+      <Grid container spacing={2} columns={16} sx={{ pb: 5 }}>
+        <Grid item xs={6}>
           <TextField
             label="Search"
             variant="outlined"
@@ -136,8 +181,19 @@ const RetreatTable: React.FC = () => {
             onChange={handleSearch}
           />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={2}>
+           <Button
+            onClick={clearSearch}
+            variant="contained"
+            color="default"
+            startIcon={<Clear />}
+          >
+            Clear
+          </Button>
+        </Grid>
+        <Grid item xs={6}>
           <FormControl variant="outlined" fullWidth>
+            <InputLabel id="rows-per-page-label">Rows per page</InputLabel>
             <Select
               labelId="rows-per-page-label"
               value={rowsPerPage}
@@ -150,6 +206,41 @@ const RetreatTable: React.FC = () => {
             </Select>
           </FormControl>
         </Grid>
+          <Grid item xs={2}>
+            <Button
+            onClick={() => handleSaveView(prompt('Enter view name:') || '')}
+            variant="contained"
+            color="primary"
+          >
+            Save View
+          </Button>
+        </Grid>
+        <Grid item xs={6}>
+          <FormControl variant="outlined" fullWidth>
+            <InputLabel id="view-select-label">Load View</InputLabel>
+            <Select
+              labelId="view-select-label"
+              value={currentView}
+              onChange={(event) => handleLoadView(event.target.value as string)}
+              label="Load View"
+            >
+              {Object.keys(views).map(viewName => (
+                <MenuItem key={viewName} value={viewName}>{viewName}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+         <Grid item xs={2}>
+          <FormControl variant="outlined" fullWidth>
+          </FormControl>
+           <Button
+            onClick={() => handleDeleteView(currentView)}
+            variant="contained"
+            color="secondary"
+          >
+            Delete View
+          </Button>
+        </Grid>
       </Grid>
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -159,16 +250,18 @@ const RetreatTable: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    {visibleColumns.map((column) => column.visible && (
-                      <TableCell key={column.id}>
-                        <TableSortLabel
-                          active={sortConfig.key === column.id}
-                          direction={sortConfig.order === 'asc' ? 'asc' : 'desc'}
-                          onClick={() => handleSort(column.id as keyof Retreat)}
-                        >
-                          {column.label}
-                        </TableSortLabel>
-                      </TableCell>
+                    {visibleColumns.map((col) => (
+                      col.visible && (
+                        <TableCell key={col.id}>
+                          <TableSortLabel
+                            active={sortConfig.key === col.id}
+                            direction={sortConfig.order === 'asc' ? 'asc' : 'desc'}
+                            onClick={() => handleSort(col.id as keyof Retreat)}
+                          >
+                            {col.label}
+                          </TableSortLabel>
+                        </TableCell>
+                      )
                     ))}
                     <TableCell>Actions</TableCell>
                   </TableRow>
@@ -182,17 +275,19 @@ const RetreatTable: React.FC = () => {
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
                         >
-                          {visibleColumns.map((column) => column.visible && (
-                            <TableCell key={column.id}>
-                              {editedRow && editedRow.id === row.id ? (
-                                <TextField
-                                  value={editedRow[column.id as keyof Retreat]}
-                                  onChange={(event) => handleInputChange(event, column.id as keyof Retreat)}
-                                />
-                              ) : (
-                                row[column.id as keyof Retreat]
-                              )}
-                            </TableCell>
+                          {visibleColumns.map((col) => (
+                            col.visible && (
+                              <TableCell key={col.id}>
+                                {editedRow && editedRow.id === row.id ? (
+                                  <TextField
+                                    value={editedRow[col.id as keyof Retreat] as string}
+                                    onChange={(e) => handleInputChange(e, col.id as keyof Retreat)}
+                                  />
+                                ) : (
+                                  row[col.id as keyof Retreat] as string
+                                )}
+                              </TableCell>
+                            )
                           ))}
                           <TableCell>
                             {editedRow && editedRow.id === row.id ? (
@@ -222,7 +317,7 @@ const RetreatTable: React.FC = () => {
         </Droppable>
       </DragDropContext>
 
-      <div>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 2 }}>
         <Button
           onClick={() => handlePageChange('prev')}
           disabled={currentPage === 1}
@@ -232,11 +327,11 @@ const RetreatTable: React.FC = () => {
         <span>{currentPage}</span>
         <Button
           onClick={() => handlePageChange('next')}
-          disabled={currentPage === Math.ceil(filteredData.length / rowsPerPage)}
+          disabled={paginatedData.length < rowsPerPage}
         >
           Next
         </Button>
-      </div>
+      </Box>
       <Box
         display="flex"
         flexDirection="row"
