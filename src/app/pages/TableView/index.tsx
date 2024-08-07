@@ -2,8 +2,9 @@ import React, { useState, useEffect, ChangeEvent } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TableSortLabel, Paper, TextField, Checkbox, Button, IconButton, Select,
-  MenuItem, FormControl, InputLabel
+  MenuItem, FormControl
 } from '@material-ui/core';
+import { Grid, Box, InputLabel, Card } from '@mui/material';
 import { Edit, Save, Cancel } from '@material-ui/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { fetchRetreats, updateRetreat } from '../../api';
@@ -96,10 +97,10 @@ const RetreatTable: React.FC = () => {
 
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
-    const reorderedColumns = Array.from(visibleColumns);
-    const [removed] = reorderedColumns.splice(result.source.index, 1);
-    reorderedColumns.splice(result.destination.index, 0, removed);
-    setVisibleColumns(reorderedColumns);
+    const reorderedData = Array.from(data);
+    const [removed] = reorderedData.splice(result.source.index, 1);
+    reorderedData.splice(result.destination.index, 0, removed);
+    setData(reorderedData);
   };
 
   const filteredData = data.filter(row => {
@@ -124,95 +125,103 @@ const RetreatTable: React.FC = () => {
   const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   return (
-    <Paper>
-      <TextField
-        label="Search"
-        variant="outlined"
-        fullWidth
-        value={searchQuery}
-        onChange={handleSearch}
-      />
-      <FormControl variant="outlined" fullWidth margin="normal">
-        <InputLabel id="rows-per-page-label">Rows per page</InputLabel>
-        <Select
-          labelId="rows-per-page-label"
-          value={rowsPerPage}
-          onChange={handleRowsPerPageChange}
-          label="Rows per page"
-        >
-          {[5, 10, 15, 20].map(number => (
-            <MenuItem key={number} value={number}>{number}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+    <Card sx={{ p: 5 }} variant="outlined">
+      <Grid container spacing={2} columns={16}>
+        <Grid item xs={8}>
+          <TextField
+            label="Search"
+            variant="outlined"
+            fullWidth
+            value={searchQuery}
+            onChange={handleSearch}
+          />
+        </Grid>
+        <Grid item xs={8}>
+          <FormControl variant="outlined" fullWidth>
+            <Select
+              labelId="rows-per-page-label"
+              value={rowsPerPage}
+              onChange={handleRowsPerPageChange}
+              label="Rows per page"
+            >
+              {[5, 10, 15, 20].map(number => (
+                <MenuItem key={number} value={number}>{number}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
+
       <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="columns" direction="horizontal">
+        <Droppable droppableId="droppable" direction="vertical">
           {(provided) => (
             <TableContainer component={Paper} ref={provided.innerRef} {...provided.droppableProps}>
               <Table>
                 <TableHead>
                   <TableRow>
-                    {visibleColumns.map((column, index) => column.visible && (
-                      <Draggable key={column.id} draggableId={column.id} index={index}>
-                        {(provided) => (
-                          <TableCell
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                          >
-                            <TableSortLabel
-                              active={sortConfig.key === column.id}
-                              direction={sortConfig.order === 'asc' ? 'asc' : 'desc'}
-                              onClick={() => handleSort(column.id as keyof Retreat)}
-                            >
-                              {column.label}
-                            </TableSortLabel>
-                          </TableCell>
-                        )}
-                      </Draggable>
+                    {visibleColumns.map((column) => column.visible && (
+                      <TableCell key={column.id}>
+                        <TableSortLabel
+                          active={sortConfig.key === column.id}
+                          direction={sortConfig.order === 'asc' ? 'asc' : 'desc'}
+                          onClick={() => handleSort(column.id as keyof Retreat)}
+                        >
+                          {column.label}
+                        </TableSortLabel>
+                      </TableCell>
                     ))}
+                    <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedData.map((row) => (
-                    <TableRow key={row.id}>
-                      {visibleColumns.map((column) => column.visible && (
-                        <TableCell key={column.id}>
-                          {editedRow && editedRow.id === row.id ? (
-                            <TextField
-                              value={editedRow[column.id as keyof Retreat]}
-                              onChange={(event) => handleInputChange(event, column.id as keyof Retreat)}
-                            />
-                          ) : (
-                            row[column.id as keyof Retreat]
-                          )}
-                        </TableCell>
-                      ))}
-                      <TableCell>
-                        {editedRow && editedRow.id === row.id ? (
-                          <>
-                            <IconButton onClick={handleSave}>
-                              <Save />
-                            </IconButton>
-                            <IconButton onClick={handleCancel}>
-                              <Cancel />
-                            </IconButton>
-                          </>
-                        ) : (
-                          <IconButton onClick={() => handleEdit(row)}>
-                            <Edit />
-                          </IconButton>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                  {paginatedData.map((row, index) => (
+                    <Draggable key={row.id} draggableId={row.id} index={index}>
+                      {(provided) => (
+                        <TableRow
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                        >
+                          {visibleColumns.map((column) => column.visible && (
+                            <TableCell key={column.id}>
+                              {editedRow && editedRow.id === row.id ? (
+                                <TextField
+                                  value={editedRow[column.id as keyof Retreat]}
+                                  onChange={(event) => handleInputChange(event, column.id as keyof Retreat)}
+                                />
+                              ) : (
+                                row[column.id as keyof Retreat]
+                              )}
+                            </TableCell>
+                          ))}
+                          <TableCell>
+                            {editedRow && editedRow.id === row.id ? (
+                              <>
+                                <IconButton onClick={handleSave}>
+                                  <Save />
+                                </IconButton>
+                                <IconButton onClick={handleCancel}>
+                                  <Cancel />
+                                </IconButton>
+                              </>
+                            ) : (
+                              <IconButton onClick={() => handleEdit(row)}>
+                                <Edit />
+                              </IconButton>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Draggable>
                   ))}
+                  {provided.placeholder}
                 </TableBody>
               </Table>
-              {provided.placeholder}
             </TableContainer>
           )}
         </Droppable>
       </DragDropContext>
+
       <div>
         <Button
           onClick={() => handlePageChange('prev')}
@@ -228,18 +237,25 @@ const RetreatTable: React.FC = () => {
           Next
         </Button>
       </div>
-      <div>
+      <Box
+        display="flex"
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        p={2} // Padding
+        bgcolor="background.paper" // Background color
+      >
         {columns.map((column) => (
-          <div key={column.id}>
+          <Box p={1} key={column.id}>
             <Checkbox
               checked={visibleColumns.find(col => col.id === column.id)?.visible}
               onChange={() => handleColumnVisibilityChange(column.id)}
             />
             {column.label}
-          </div>
+          </Box>
         ))}
-      </div>
-    </Paper>
+      </Box>
+    </Card>
   );
 };
 
