@@ -18,6 +18,7 @@ import {EditOutlined, SaveOutlined, CloseOutlined, ClearOutlined} from '@ant-des
 import {DragDropContext, Droppable, Draggable, DropResult} from 'react-beautiful-dnd'
 import {fetchRetreats, updateRetreat} from '../../api'
 import type {ColumnType} from 'antd/es/table/interface'
+import {useQuery} from 'react-query'
 
 const {Option} = Select
 
@@ -69,18 +70,7 @@ const RetreatTable: React.FC = () => {
       .catch((error) => console.error('Failed to fetch retreats:', error))
   }, [])
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        // Fetch your data here
-        // setPaginatedData(fetchedData);
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  const {data: retreats = [], isLoading, isError, error} = useQuery('retreats', fetchRetreats)
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value)
   }
