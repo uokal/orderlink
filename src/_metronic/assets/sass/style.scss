@@ -12,3 +12,8 @@
 // Layout
 @import './core/layout/base/layout';
 @import 'layout/layout';
+@media (max-width: 768px) {
+  .ant-table {
+    font-size: 12px; // Adjust font size for smaller screens
+  }
+}
