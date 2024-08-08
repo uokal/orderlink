@@ -11,9 +11,7 @@ type Retreat = {
   id: string
   title: string
   location: string
-  date: string
   description: string
-  price: string
   type: string
   condition: string
   image: string
@@ -30,9 +28,7 @@ interface ColumnDefinition {
 const initialColumns: ColumnDefinition[] = [
   {id: 'title', label: 'Title', visible: true},
   {id: 'description', label: 'Description', visible: true},
-  {id: 'date', label: 'Date', visible: true},
   {id: 'location', label: 'Location', visible: true},
-  {id: 'price', label: 'Price', visible: true},
   {id: 'type', label: 'Type', visible: true},
   {id: 'condition', label: 'Condition', visible: true},
   {id: 'image', label: 'Image', visible: true},
@@ -102,13 +98,6 @@ const RetreatTable: React.FC = () => {
 
   const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
-  const handleSort = (columnId: keyof Retreat) => {
-    let order: SortOrder = 'ascend'
-    if (sortConfig.key === columnId && sortConfig.order === 'ascend') order = 'descend'
-    if (sortConfig.key === columnId && sortConfig.order === 'descend') order = ''
-    setSortConfig({key: columnId, order})
-  }
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
   }
@@ -144,12 +133,6 @@ const RetreatTable: React.FC = () => {
     if (editedRow) {
       setEditedRow({...editedRow, [columnId]: event.target.value})
     }
-  }
-
-  const handleColumnVisibilityChange = (columnId: keyof Retreat) => {
-    setVisibleColumns((prev) =>
-      prev.map((col) => (col.id === columnId ? {...col, visible: !col.visible} : col))
-    )
   }
 
   const handleDragEnd = (result: DropResult) => {
@@ -207,6 +190,12 @@ const RetreatTable: React.FC = () => {
         }
         return 0
       },
+      sortOrder:
+        sortConfig.key === col.id
+          ? sortConfig.order === ''
+            ? undefined
+            : sortConfig.order
+          : undefined,
       render: (text: string, record: Retreat) =>
         editedRow && editedRow.id === record.id ? (
           <Input
@@ -342,6 +331,23 @@ const RetreatTable: React.FC = () => {
                 </Droppable>
               ),
             },
+          }}
+          onChange={(pagination, filters, sorter) => {
+            if (Array.isArray(sorter)) {
+              if (sorter.length > 0) {
+                const primarySorter = sorter[0]
+                setSortConfig({
+                  key: primarySorter.columnKey as keyof Retreat,
+                  order: primarySorter.order?.replace('end', '') as SortOrder,
+                })
+              }
+            } else if (sorter) {
+              // Handle single sorter result
+              setSortConfig({
+                key: sorter.columnKey as keyof Retreat,
+                order: sorter.order?.replace('end', '') as SortOrder,
+              })
+            }
           }}
         />
       </DragDropContext>
