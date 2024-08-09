@@ -123,8 +123,11 @@ const RetreatTable: React.FC = () => {
 
   const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = (page: number, pageSize?: number) => {
     setCurrentPage(page)
+    if (pageSize && pageSize !== rowsPerPage) {
+      setRowsPerPage(pageSize)
+    }
   }
 
   const handleRowsPerPageChange = (value: number) => {
@@ -302,7 +305,10 @@ const RetreatTable: React.FC = () => {
       </Form>
       <Divider />
       <Checkbox.Group
-        options={initialColumns.map((col) => ({label: col.label, value: col.id}))}
+        options={initialColumns.map((col) => ({
+          label: col.label,
+          value: col.id,
+        }))}
         value={visibleColumns.filter((col) => col.visible).map((col) => col.id)}
         onChange={(checkedValues) => {
           const updatedColumns = initialColumns.map((col) => ({
@@ -327,30 +333,32 @@ const RetreatTable: React.FC = () => {
                   {...provided.droppableProps}
                   style={{display: 'flex', overflowX: 'auto'}}
                 >
-                  {visibleColumns.map((col, index) => (
-                    <Draggable key={col.id} draggableId={col.id} index={index}>
-                      {(provided) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          style={{
-                            ...provided.draggableProps.style,
-                            maxWidth: col.maxWidth,
-                            width: '100%',
-                          }}
-                        >
+                  {visibleColumns
+                    .filter((col) => col.visible) // Filter to only render visible columns
+                    .map((col, index) => (
+                      <Draggable key={col.id} draggableId={col.id} index={index}>
+                        {(provided) => (
                           <div
-                            style={{padding: '8px', margin: '10px 0'}}
-                            className='d-flex justify-content-center align-items-center'
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            style={{
+                              ...provided.draggableProps.style,
+                              maxWidth: col.maxWidth,
+                              width: '100%',
+                            }}
                           >
-                            <AppstoreOutlined style={{fontSize: '24px', color: '#08c'}} />
-                            <strong className='ms-2'>{col.label}</strong>
+                            <div
+                              style={{padding: '8px', margin: '10px 0'}}
+                              className='d-flex justify-content-center align-items-center'
+                            >
+                              <AppstoreOutlined style={{fontSize: '24px', color: '#08c'}} />
+                              <strong className='ms-2'>{col.label}</strong>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
+                        )}
+                      </Draggable>
+                    ))}
                   {provided.placeholder}
                 </div>
               )}
@@ -361,21 +369,19 @@ const RetreatTable: React.FC = () => {
             dataSource={paginatedData}
             columns={[...columnsToRender, actionColumn]}
             rowKey='id'
-            pagination={false}
+            pagination={{
+              current: currentPage,
+              pageSize: rowsPerPage,
+              total: filteredData.length,
+              onChange: handlePageChange,
+              showSizeChanger: true,
+            }}
             components={{
               body: {
                 cell: ({children, ...restProps}) => <td {...restProps}>{children}</td>,
               },
             }}
-          />
-
-          <Pagination
-            current={currentPage}
-            pageSize={rowsPerPage}
-            total={filteredData.length}
-            onChange={handlePageChange}
-            style={{marginTop: 16}}
-          />
+          />\
         </>
       )}
     </Card>
