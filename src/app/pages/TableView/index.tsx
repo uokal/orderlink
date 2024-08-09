@@ -24,6 +24,12 @@ import {
 import {DragDropContext, Droppable, Draggable, DropResult} from 'react-beautiful-dnd'
 import {fetchRetreats, updateRetreat} from '../../api'
 import type {ColumnType} from 'antd/es/table/interface'
+import type {
+  TablePaginationConfig,
+  FilterValue,
+  SorterResult,
+  TableCurrentDataSource,
+} from 'antd/es/table/interface'
 import {useQuery} from 'react-query'
 
 const {Option} = Select
@@ -44,7 +50,7 @@ type ColumnDefinition = {
   id: keyof Retreat
   label: string
   visible: boolean
-  maxWidth?: number // Add maxWidth to define maximum column width
+  maxWidth?: number
 }
 
 const initialColumns: ColumnDefinition[] = [
@@ -204,21 +210,33 @@ const RetreatTable: React.FC = () => {
     }
   }
 
+  const handleTableChange = (
+    pagination: TablePaginationConfig,
+    filters: Record<string, FilterValue | null>,
+    sorter: SorterResult<Retreat> | SorterResult<Retreat>[],
+    extra: TableCurrentDataSource<Retreat>
+  ) => {
+    if (Array.isArray(sorter)) {
+      // Handle multiple sorters if necessary
+      return
+    }
+
+    if (sorter.field && typeof sorter.field === 'string') {
+      setSortConfig({
+        key: sorter.field as keyof Retreat,
+        order: sorter.order || '',
+      })
+    }
+  }
+
   const columnsToRender: ColumnType<Retreat>[] = visibleColumns
     .filter((col) => col.visible)
     .map((col) => ({
       title: col.label,
       dataIndex: col.id,
       key: col.id,
-      width: col.maxWidth, // Set the width for each column
-      sorter: (a: Retreat, b: Retreat) => {
-        if (sortConfig.key === col.id) {
-          return sortConfig.order === 'ascend'
-            ? (a[col.id] as string).localeCompare(b[col.id] as string)
-            : (b[col.id] as string).localeCompare(a[col.id] as string)
-        }
-        return 0
-      },
+      width: col.maxWidth,
+      sorter: true,
       sortOrder:
         sortConfig.key === col.id
           ? sortConfig.order === ''
@@ -270,9 +288,9 @@ const RetreatTable: React.FC = () => {
           <Col xs={24} sm={12} md={4}>
             <Form.Item>
               <Select defaultValue={rowsPerPage} onChange={handleRowsPerPageChange}>
-                {[5, 10, 15, 20].map((number) => (
-                  <Option key={number} value={number}>
-                    {number}
+                {[5, 10, 20, 50].map((value) => (
+                  <Option key={value} value={value}>
+                    {value} per page
                   </Option>
                 ))}
               </Select>
@@ -285,7 +303,7 @@ const RetreatTable: React.FC = () => {
           </Col>
           <Col xs={24} sm={12} md={4}>
             <Form.Item>
-              <Select placeholder='Load View' value={currentView} onChange={handleLoadView}>
+              <Select value={currentView} onChange={handleLoadView} placeholder='Load View'>
                 {Object.keys(views).map((viewName) => (
                   <Option key={viewName} value={viewName}>
                     {viewName}
@@ -294,9 +312,9 @@ const RetreatTable: React.FC = () => {
               </Select>
             </Form.Item>
           </Col>
-          <Col xs={24} sm={12} md={2}>
+          <Col xs={24} sm={12} md={4}>
             <Form.Item>
-              <Button danger onClick={handleDeleteView}>
+              <Button onClick={handleDeleteView} disabled={!currentView}>
                 Delete View
               </Button>
             </Form.Item>
@@ -304,85 +322,75 @@ const RetreatTable: React.FC = () => {
         </Row>
       </Form>
       <Divider />
-      <Checkbox.Group
-        options={initialColumns.map((col) => ({
-          label: col.label,
-          value: col.id,
-        }))}
-        value={visibleColumns.filter((col) => col.visible).map((col) => col.id)}
-        onChange={(checkedValues) => {
-          const updatedColumns = initialColumns.map((col) => ({
-            ...col,
-            visible: checkedValues.includes(col.id),
-          }))
-          setVisibleColumns(updatedColumns)
-        }}
-      />
+      <h2 className='mb-4'>
+        Handle visibility and rearrange columns by dragging and dropping them to your desired
+        position.
+      </h2>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId='columns' direction='horizontal'>
+          {(provided) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              style={{display: 'flex', marginBottom: 16}}
+            >
+              {visibleColumns.map((col, index) => (
+                <Draggable key={col.id} draggableId={col.id} index={index}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      style={{
+                        userSelect: 'none',
+                        padding: 8,
+                        margin: `0 ${8}px 0 0`,
+                        backgroundColor: '#f0f0f0',
+                        border: '1px solid #d9d9d9',
+                        borderRadius: 4,
+                        ...provided.draggableProps.style,
+                      }}
+                    >
+                      <Checkbox
+                        checked={col.visible}
+                        onChange={(e) =>
+                          setVisibleColumns((prev) =>
+                            prev.map((c) =>
+                              c.id === col.id ? {...c, visible: e.target.checked} : c
+                            )
+                          )
+                        }
+                      >
+                        {col.label}
+                      </Checkbox>
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
       <Divider />
       {isLoading ? (
-        <Spin size='large' className='d-flex justify-content-center' />
+        <Spin tip='Loading...' />
       ) : isError ? (
         <div>Error</div>
       ) : (
-        <>
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId='droppable' direction='horizontal'>
-              {(provided) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  style={{display: 'flex', overflowX: 'auto'}}
-                >
-                  {visibleColumns
-                    .filter((col) => col.visible) // Filter to only render visible columns
-                    .map((col, index) => (
-                      <Draggable key={col.id} draggableId={col.id} index={index}>
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            style={{
-                              ...provided.draggableProps.style,
-                              maxWidth: col.maxWidth,
-                              width: '100%',
-                            }}
-                          >
-                            <div
-                              style={{padding: '8px', margin: '10px 0'}}
-                              className='d-flex justify-content-center align-items-center'
-                            >
-                              <AppstoreOutlined style={{fontSize: '24px', color: '#08c'}} />
-                              <strong className='ms-2'>{col.label}</strong>
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-
-          <Table
-            dataSource={paginatedData}
-            columns={[...columnsToRender, actionColumn]}
-            rowKey='id'
-            pagination={{
-              current: currentPage,
-              pageSize: rowsPerPage,
-              total: filteredData.length,
-              onChange: handlePageChange,
-              showSizeChanger: true,
-            }}
-            components={{
-              body: {
-                cell: ({children, ...restProps}) => <td {...restProps}>{children}</td>,
-              },
-            }}
-          />\
-        </>
+        <Table
+          dataSource={paginatedData}
+          columns={[...columnsToRender, actionColumn]}
+          rowKey='id'
+          pagination={{
+            current: currentPage,
+            pageSize: rowsPerPage,
+            total: filteredData.length,
+            onChange: handlePageChange,
+            showSizeChanger: true,
+          }}
+          onChange={handleTableChange}
+        />
       )}
     </Card>
   )
