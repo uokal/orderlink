@@ -9,6 +9,7 @@ interface ViewManagerProps {
   onSaveView: (viewName: string) => void
   onLoadView: (viewName: string) => void
   onDeleteView: (viewName: string) => void
+  setCurrentView: (viewName: string) => void
 }
 
 const ViewManager: React.FC<ViewManagerProps> = ({
@@ -17,6 +18,7 @@ const ViewManager: React.FC<ViewManagerProps> = ({
   onSaveView,
   onLoadView,
   onDeleteView,
+  setCurrentView,
 }) => {
   // Wrap onSaveView to prompt for a view name
   const handleSaveView = () => {
@@ -30,6 +32,8 @@ const ViewManager: React.FC<ViewManagerProps> = ({
   const handleDeleteView = () => {
     if (currentView) {
       onDeleteView(currentView)
+      setCurrentView('')
+    } else {
     }
   }
 

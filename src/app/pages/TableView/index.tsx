@@ -6,7 +6,7 @@ import SearchBar from './components/searchBar'
 import ViewManager from './components/viewManager'
 import ColumnManager from './components/columns'
 import {ColumnDefinition, Retreat, SortOrder} from '../../types'
-import PaginationSelection from './components/paginationSelection'
+import PaginationSelection from './components/pagination'
 
 const initialColumns: ColumnDefinition[] = [
   {id: 'title', label: 'Title', visible: true, maxWidth: 250},
@@ -148,6 +148,7 @@ const RetreatTable: React.FC = () => {
             onSaveView={handleSaveView}
             onLoadView={handleLoadView}
             onDeleteView={handleDeleteView}
+            setCurrentView={setCurrentView}
           />
         </Col>
       </Row>
@@ -160,7 +161,7 @@ const RetreatTable: React.FC = () => {
       />
       <Divider />
       {isLoading ? (
-        <Spin tip='Loading...' className='d-flex justify-content-center' />
+        <Spin className='d-flex justify-content-center' />
       ) : isError ? (
         <div>Error</div>
       ) : (
