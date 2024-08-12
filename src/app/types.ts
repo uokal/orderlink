@@ -1,8 +1,18 @@
-export interface Column {
-  title: string;
-  dataIndex: string;
-  key: string;
-  sorter: boolean; // Ensure this is always boolean, not boolean | undefined
-  editable: boolean;
-  visible: boolean;
+export type Retreat = {
+  id: string
+  title: string
+  description: string
+  location: string
+  type: string
+  condition: string
+  image: string
 }
+
+export type ColumnDefinition = {
+  id: keyof Retreat
+  label: string
+  visible: boolean
+  maxWidth: number
+}
+
+export type SortOrder = 'ascend' | 'descend'
