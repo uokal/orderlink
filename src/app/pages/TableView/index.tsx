@@ -102,7 +102,24 @@ const RetreatTable: React.FC = () => {
     })
   }
 
-  const filteredData = data.filter((retreat) =>
+  const sortedData = [...data].sort((a, b) => {
+    const aValue = a[sortConfig.key]
+    const bValue = b[sortConfig.key]
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortConfig.order === 'ascend'
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue)
+    }
+
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortConfig.order === 'ascend' ? aValue - bValue : bValue - aValue
+    }
+
+    return 0 // default return if types are not comparable
+  })
+
+  const filteredData = sortedData.filter((retreat) =>
     retreat.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -113,6 +130,7 @@ const RetreatTable: React.FC = () => {
       dataIndex: col.id,
       key: col.id,
       width: col.maxWidth,
+      sorter: true, // Enable sorting for these columns
       render: (text: string, record: Retreat) =>
         editedRow && editedRow.id === record.id ? (
           <Input
@@ -123,15 +141,12 @@ const RetreatTable: React.FC = () => {
           text
         ),
     }))
-  useEffect(() => {
-    if (retreats.length > 0) {
-      setData(retreats)
-    }
-  }, [retreats])
+
   const paginatedData = filteredData.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   )
+
   return (
     <Card title='Dynamic Table' bordered={false}>
       <Row gutter={16}>
